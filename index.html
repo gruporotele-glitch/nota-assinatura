@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Assinatura de Notas · Rotele</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3a3a3c">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --dark:#3a3a3c; --orange:#fcb040; --bg:#f3f3f4; --card:#ffffff;
+    --text:#232326; --muted:#6c6c70; --danger:#c0392b; --ok:#2e7d32;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:var(--dark);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
+  header .brand{display:flex;align-items:center;gap:10px;}
+  header .dot{width:10px;height:10px;border-radius:50%;background:var(--orange);}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header .sub{font-size:11px;color:#c9c9cc;margin-top:2px;}
+  header button{background:transparent;border:1px solid #6a6a6c;color:#e8e8e9;border-radius:6px;padding:6px 10px;font-size:12px;}
+  main{max-width:480px;margin:0 auto;padding:20px 16px 60px;}
+  .card{background:var(--card);border-radius:10px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
+  input[type=text],input[type=password],select,textarea{
+    width:100%;padding:11px 12px;border:1px solid #d8d8db;border-radius:8px;font-size:15px;background:#fff;
+  }
+  textarea{resize:vertical;min-height:60px;}
+  button.primary{
+    width:100%;margin-top:16px;background:var(--orange);color:#2a2a2c;border:none;
+    padding:13px;border-radius:8px;font-size:15px;font-weight:600;
+  }
+  button.primary:disabled{opacity:.45;}
+  button.link{background:none;border:none;color:var(--dark);font-size:13px;text-decoration:underline;padding:0;}
+  .error{color:var(--danger);font-size:13px;margin-top:8px;}
+  .note-item{border:1px solid #e3e3e5;border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;background:#fff;}
+  .note-item .name{font-size:14px;font-weight:600;}
+  .note-item .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 10px;}
+  .pdf-wrap{position:relative;border:1px solid #ddd;border-radius:8px;overflow:hidden;touch-action:manipulation;}
+  .pdf-wrap canvas{width:100%;display:block;}
+  .marker{position:absolute;width:14px;height:14px;background:var(--orange);border:2px solid var(--dark);border-radius:50%;transform:translate(-50%,-50%);}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px;}
+  .row2{display:flex;gap:10px;}
+  .row2 > div{flex:1;}
+  .status-pill{font-size:11px;padding:3px 8px;border-radius:12px;background:#e9f5ea;color:var(--ok);}
+  #app{display:none;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="dot"></span>
+    <div>
+      <h1>Assinatura de Notas</h1>
+      <div class="sub">Rotele Distribuidora de Bebidas</div>
+    </div>
+  </div>
+  <button id="btnSair" class="hidden" onclick="sair()">Sair</button>
+</header>
+
+<main>
+
+  <!-- LOGIN -->
+  <section id="viewLogin" class="card">
+    <label>Usuário</label>
+    <input type="text" id="loginUsuario" autocomplete="username">
+    <label>Senha</label>
+    <input type="password" id="loginSenha" autocomplete="current-password">
+    <button class="primary" onclick="fazerLogin()">Entrar</button>
+    <div id="loginErro" class="error hidden"></div>
+  </section>
+
+  <div id="app">
+
+    <!-- ADMIN: UPLOAD -->
+    <section id="viewAdmin" class="card hidden">
+      <label>Selecionar nota (PDF)</label>
+      <input type="file" id="arquivoPdf" accept="application/pdf">
+      <button class="primary" id="btnUpload" onclick="subirNota()" disabled>Subir nota</button>
+      <div id="uploadMsg" class="hint"></div>
+    </section>
+
+    <!-- OPERACIONAL: LISTA -->
+    <section id="viewLista" class="hidden">
+      <div class="card">
+        <strong>Notas pendentes de assinatura</strong>
+        <div id="listaNotas" style="margin-top:12px;"></div>
+        <button class="link" onclick="carregarPendentes()">Atualizar lista</button>
+      </div>
+    </section>
+
+    <!-- OPERACIONAL: ASSINAR -->
+    <section id="viewAssinar" class="card hidden">
+      <button class="link" onclick="voltarLista()">&larr; voltar</button>
+      <div class="pdf-wrap" id="pdfWrap" style="margin-top:10px;">
+        <canvas id="pdfCanvas"></canvas>
+        <div id="marker" class="marker hidden"></div>
+      </div>
+      <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
+
+      <label>Placa</label>
+      <input type="text" id="campoPlaca" placeholder="Ex: ABC1D23">
+      <label>Centro de custo</label>
+      <select id="campoCentroCusto">
+        <option value="Entrega">Entrega</option>
+        <option value="Puxada">Puxada</option>
+        <option value="Armazém">Armazém</option>
+      </select>
+      <label>Recado (opcional)</label>
+      <textarea id="campoRecado" placeholder="Observação adicional"></textarea>
+
+      <button class="primary" id="btnConfirmarAssinatura" onclick="confirmarAssinatura()" disabled>
+        Assinar nota
+      </button>
+      <div id="assinarMsg" class="hint"></div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+// ⚠️ Troque pela URL do seu Apps Script Web App (Implantar > Nova implantação)
+const API_URL = 'https://script.google.com/macros/s/AKfycbysrZ4GtFGZGXLAnlT-547PlGrJp9V-HiiJ0g7DHNMf6OA2ars0kxZP86ivseGhChb5EA/exec';
+
+let sessao = null; // {usuario, senha, perfil, nome}
+let notaAtual = null;
+let pdfDoc = null;         // pdf-lib doc (bytes originais)
+let pdfOriginalBytes = null;
+let pontoToque = null;     // {xPdf, yPdf}
+let pdfjsPage = null;
+let canvasScale = 1;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+function mostrar(id) {
+  document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+async function api(action, payload, method) {
+  if (method === 'GET') {
+    const params = new URLSearchParams({ action, ...payload }).toString();
+    const res = await fetch(API_URL + '?' + params);
+    return res.json();
+  }
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, ...payload })
+  });
+  return res.json();
+}
+
+async function fazerLogin() {
+  const usuario = document.getElementById('loginUsuario').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const erroEl = document.getElementById('loginErro');
+  erroEl.classList.add('hidden');
+
+  if (!usuario || !senha) return;
+
+  const r = await api('login', { usuario, senha }, 'POST');
+  if (!r.ok) {
+    erroEl.textContent = 'Usuário ou senha inválidos.';
+    erroEl.classList.remove('hidden');
+    return;
+  }
+
+  sessao = { usuario, senha, perfil: r.perfil, nome: r.nome };
+  document.getElementById('viewLogin').classList.add('hidden');
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('btnSair').classList.remove('hidden');
+
+  if (sessao.perfil === 'admin') {
+    mostrar('viewAdmin');
+  } else {
+    mostrar('viewLista');
+    carregarPendentes();
+  }
+}
+
+function sair() {
+  sessao = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('btnSair').classList.add('hidden');
+  document.getElementById('loginSenha').value = '';
+  mostrar('viewLogin');
+}
+
+// ---------- ADMIN: UPLOAD ----------
+document.getElementById('arquivoPdf').addEventListener('change', (e) => {
+  document.getElementById('btnUpload').disabled = !e.target.files.length;
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function subirNota() {
+  const input = document.getElementById('arquivoPdf');
+  const file = input.files[0];
+  if (!file) return;
+  const msg = document.getElementById('uploadMsg');
+  msg.textContent = 'Enviando...';
+
+  const base64 = await fileToBase64(file);
+  const r = await api('upload', {
+    usuario: sessao.usuario, senha: sessao.senha,
+    filename: file.name, base64
+  }, 'POST');
+
+  if (r.ok) {
+    msg.textContent = 'Nota enviada com sucesso.';
+    input.value = '';
+    document.getElementById('btnUpload').disabled = true;
+  } else {
+    msg.textContent = 'Erro: ' + (r.erro || 'falha ao enviar');
+  }
+}
+
+// ---------- OPERACIONAL: LISTA ----------
+async function carregarPendentes() {
+  const box = document.getElementById('listaNotas');
+  box.innerHTML = '<div class="hint">Carregando...</div>';
+  const r = await api('listPending', { usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  if (!r.ok || !r.notas.length) {
+    box.innerHTML = '<div class="empty">Nenhuma nota pendente.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  r.notas.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'note-item';
+    el.innerHTML = `
+      <div>
+        <div class="name">${n.nomeArquivo}</div>
+        <div class="meta">Subido por ${n.subidoPor}</div>
+      </div>
+      <span class="status-pill">Pendente</span>
+    `;
+    el.onclick = () => abrirNota(n);
+    box.appendChild(el);
+  });
+}
+
+function voltarLista() {
+  mostrar('viewLista');
+  carregarPendentes();
+}
+
+// ---------- OPERACIONAL: ASSINAR ----------
+async function abrirNota(nota) {
+  notaAtual = nota;
+  pontoToque = null;
+  document.getElementById('marker').classList.add('hidden');
+  document.getElementById('btnConfirmarAssinatura').disabled = true;
+  document.getElementById('campoPlaca').value = '';
+  document.getElementById('campoRecado').value = '';
+  document.getElementById('assinarMsg').textContent = '';
+  mostrar('viewAssinar');
+
+  const r = await api('getFile', { id: nota.id, usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  if (!r.ok) {
+    document.getElementById('assinarMsg').textContent = 'Erro ao carregar PDF.';
+    return;
+  }
+
+  const binary = atob(r.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  pdfOriginalBytes = bytes;
+
+  await renderizarPagina(bytes);
+}
+
+async function renderizarPagina(bytes) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  const page = await doc.getPage(1);
+  pdfjsPage = page;
+
+  const wrap = document.getElementById('pdfWrap');
+  const targetWidth = wrap.clientWidth || 400;
+  const unscaled = page.getViewport({ scale: 1 });
+  canvasScale = targetWidth / unscaled.width;
+  const viewport = page.getViewport({ scale: canvasScale });
+
+  const canvas = document.getElementById('pdfCanvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  canvas.onclick = (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    const xCanvas = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const yCanvas = (ev.clientY - rect.top) * (canvas.height / rect.height);
+
+    const marker = document.getElementById('marker');
+    marker.style.left = ((ev.clientX - rect.left) / rect.width * 100) + '%';
+    marker.style.top = ((ev.clientY - rect.top) / rect.height * 100) + '%';
+    marker.classList.remove('hidden');
+
+    // converte para coordenadas do PDF (origem embaixo à esquerda)
+    const pdfX = xCanvas / canvasScale;
+    const pdfY = unscaled.height - (yCanvas / canvasScale);
+    pontoToque = { x: pdfX, y: pdfY };
+
+    document.getElementById('btnConfirmarAssinatura').disabled = false;
+  };
+}
+
+async function confirmarAssinatura() {
+  if (!pontoToque) return;
+  const msg = document.getElementById('assinarMsg');
+  msg.textContent = 'Processando...';
+  document.getElementById('btnConfirmarAssinatura').disabled = true;
+
+  const placa = document.getElementById('campoPlaca').value.trim();
+  const centroCusto = document.getElementById('campoCentroCusto').value;
+  const recado = document.getElementById('campoRecado').value.trim();
+
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.load(pdfOriginalBytes);
+  const page = doc.getPages()[0];
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+
+  const linha1 = `Placa: ${placa || '-'}  ·  C. Custo: ${centroCusto}`;
+  const linha2 = recado ? recado : '';
+  const linha3 = `Assinado por ${sessao.nome} em ${new Date().toLocaleString('pt-BR')}`;
+
+  const x = pontoToque.x;
+  let y = pontoToque.y;
+
+  page.drawText(linha1, { x, y, size: 10, font, color: rgb(0.15,0.15,0.16) });
+  y -= 13;
+  if (linha2) {
+    page.drawText(linha2, { x, y, size: 10, font, color: rgb(0.15,0.15,0.16) });
+    y -= 13;
+  }
+  page.drawText(linha3, { x, y, size: 8, font, color: rgb(0.42,0.42,0.44) });
+
+  const finalBytes = await doc.save();
+  let binary = '';
+  finalBytes.forEach(b => binary += String.fromCharCode(b));
+  const base64 = btoa(binary);
+
+  const r = await api('sign', {
+    usuario: sessao.usuario, senha: sessao.senha,
+    noteId: notaAtual.id, base64, placa, centroCusto, recado
+  }, 'POST');
+
+  if (r.ok) {
+    msg.textContent = 'Nota assinada com sucesso.';
+    setTimeout(voltarLista, 900);
+  } else {
+    msg.textContent = 'Erro: ' + (r.erro || 'falha ao assinar');
+    document.getElementById('btnConfirmarAssinatura').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
