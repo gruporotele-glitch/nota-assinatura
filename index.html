@@ -80,10 +80,19 @@
 
     <!-- ADMIN: UPLOAD -->
     <section id="viewAdmin" class="card hidden">
-      <label>Selecionar nota (PDF)</label>
-      <input type="file" id="arquivoPdf" accept="application/pdf">
-      <button class="primary" id="btnUpload" onclick="subirNota()" disabled>Subir nota</button>
+      <label>Selecionar notas (PDF) — pode escolher várias</label>
+      <input type="file" id="arquivoPdf" accept="application/pdf" multiple>
+      <button class="primary" id="btnUpload" onclick="subirNota()" disabled>Subir nota(s)</button>
       <div id="uploadMsg" class="hint"></div>
+      <button class="link" style="margin-top:14px;" onclick="mostrarMinhasNotas()">Ver minhas notas &rarr;</button>
+    </section>
+
+    <!-- ADMIN: ACOMPANHAMENTO -->
+    <section id="viewMinhasNotas" class="card hidden">
+      <button class="link" onclick="mostrar('viewAdmin')">&larr; voltar</button>
+      <strong style="display:block;margin:10px 0;">Minhas notas</strong>
+      <div id="listaMinhasNotas"></div>
+      <button class="link" onclick="carregarMinhasNotas()">Atualizar lista</button>
     </section>
 
     <!-- OPERACIONAL: LISTA -->
@@ -212,23 +221,100 @@ function fileToBase64(file) {
 
 async function subirNota() {
   const input = document.getElementById('arquivoPdf');
-  const file = input.files[0];
-  if (!file) return;
+  const files = Array.from(input.files);
+  if (!files.length) return;
   const msg = document.getElementById('uploadMsg');
-  msg.textContent = 'Enviando...';
+  const btn = document.getElementById('btnUpload');
+  btn.disabled = true;
 
-  const base64 = await fileToBase64(file);
-  const r = await api('upload', {
-    usuario: sessao.usuario, senha: sessao.senha,
-    filename: file.name, base64
-  }, 'POST');
+  let sucesso = 0, falha = 0;
+  for (let i = 0; i < files.length; i++) {
+    msg.textContent = `Enviando ${i + 1} de ${files.length}...`;
+    const base64 = await fileToBase64(files[i]);
+    const r = await api('upload', {
+      usuario: sessao.usuario, senha: sessao.senha,
+      filename: files[i].name, base64
+    }, 'POST');
+    if (r.ok) sucesso++; else falha++;
+  }
 
+  msg.textContent = falha
+    ? `${sucesso} nota(s) enviada(s), ${falha} com erro.`
+    : `${sucesso} nota(s) enviada(s) com sucesso.`;
+  input.value = '';
+  btn.disabled = true;
+}
+
+// ---------- ADMIN: MINHAS NOTAS ----------
+function mostrarMinhasNotas() {
+  mostrar('viewMinhasNotas');
+  carregarMinhasNotas();
+}
+
+function fmtData(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return isNaN(dt) ? d : dt.toLocaleString('pt-BR');
+}
+
+async function carregarMinhasNotas() {
+  const box = document.getElementById('listaMinhasNotas');
+  box.innerHTML = '<div class="hint">Carregando...</div>';
+  const r = await api('listAll', { usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  if (!r.ok) {
+    box.innerHTML = '<div class="error">' + (r.erro || 'Erro ao carregar') + '</div>';
+    return;
+  }
+  if (!r.notas.length) {
+    box.innerHTML = '<div class="empty">Nenhuma nota enviada ainda.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  r.notas.forEach(n => {
+    const assinado = n.status === 'Assinado';
+    const el = document.createElement('div');
+    el.className = 'note-item';
+    el.style.flexDirection = 'column';
+    el.style.alignItems = 'stretch';
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="name">${n.nomeArquivo}</div>
+          <div class="meta">
+            ${assinado
+              ? `Assinado por ${n.assinadoPor} em ${fmtData(n.dataAssinatura)}<br>Placa: ${n.placa || '-'} · C. Custo: ${n.centroCusto || '-'}`
+              : `Subido em ${fmtData(n.dataUpload)}`}
+          </div>
+        </div>
+        <span class="status-pill" style="${assinado ? '' : 'background:#fff3e0;color:#b26a00;'}">${n.status}</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="link" data-act="baixar">Baixar PDF</button>
+        <button class="link" data-act="excluir" style="color:#c0392b;">Excluir</button>
+      </div>
+    `;
+    el.querySelector('[data-act=baixar]').onclick = () => baixarNota(n.id, n.nomeArquivo);
+    el.querySelector('[data-act=excluir]').onclick = () => excluirNota(n.id);
+    box.appendChild(el);
+  });
+}
+
+async function baixarNota(id, nomeArquivo) {
+  const r = await api('getFile', { id, usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  if (!r.ok) { alert('Erro ao baixar: ' + (r.erro || '')); return; }
+  const link = document.createElement('a');
+  link.href = 'data:application/pdf;base64,' + r.base64;
+  link.download = nomeArquivo || 'nota.pdf';
+  link.click();
+}
+
+async function excluirNota(id) {
+  if (!confirm('Excluir esta nota definitivamente? Essa ação não pode ser desfeita.')) return;
+  const r = await api('delete', { usuario: sessao.usuario, senha: sessao.senha, noteId: id }, 'POST');
   if (r.ok) {
-    msg.textContent = 'Nota enviada com sucesso.';
-    input.value = '';
-    document.getElementById('btnUpload').disabled = true;
+    carregarMinhasNotas();
   } else {
-    msg.textContent = 'Erro: ' + (r.erro || 'falha ao enviar');
+    alert('Erro ao excluir: ' + (r.erro || ''));
   }
 }
 
