@@ -111,12 +111,23 @@
         <canvas id="pdfCanvas"></canvas>
         <div id="marker" class="marker hidden"></div>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <button class="link" onclick="paginaAnterior()">&larr; Anterior</button>
+        <span id="infoPagina" class="hint" style="margin:0;">Página 1 de 1</span>
+        <button class="link" onclick="paginaProxima()">Próxima &rarr;</button>
+      </div>
       <button class="link" onclick="abrirEmTelaCheia()">Ver PDF em tela cheia (leitor do celular)</button>
       <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
 
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
+        <input type="checkbox" id="replicarTodasPaginas" checked onchange="onMudarReplicar()" style="width:auto;">
+        <span style="font-size:13px;color:var(--text);">Aplicar o mesmo carimbo em todas as páginas</span>
+      </label>
+      <div class="hint" id="hintReplicar">Desmarque pra escolher, página a página, onde o carimbo vai (útil quando cada página precisa de um recado diferente).</div>
+
       <label>Placa</label>
       <input type="text" id="campoPlaca" placeholder="Ex: ABC1D23" style="text-transform:uppercase;">
-      <label>Centro de custo</label>
+      <label>C.C CUSTO</label>
       <select id="campoCentroCusto">
         <option value="Entrega">Entrega</option>
         <option value="Puxada">Puxada</option>
@@ -140,11 +151,15 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbysrZ4GtFGZGXLAnlT-547P
 
 let sessao = null; // {usuario, senha, perfil, nome}
 let notaAtual = null;
-let pdfDoc = null;         // pdf-lib doc (bytes originais)
 let pdfOriginalBytes = null;
-let pontoToque = null;     // {xPdf, yPdf}
-let pdfjsPage = null;
+let pdfjsDocAtual = null;
+let numPaginas = 1;
+let paginaAtual = 1;
+let pontosPorPagina = {};  // usado quando "replicar" está desmarcado: {numPagina: {x,y}}
+let pontoUnico = null;     // usado quando "replicar" está marcado
 let canvasScale = 1;
+let ultimoRenderScale = 1;
+let ultimaAlturaPdf = 1;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -283,7 +298,7 @@ async function carregarMinhasNotas() {
           <div class="name">${n.nomeArquivo}</div>
           <div class="meta">
             ${assinado
-              ? `Assinado por ${n.assinadoPor} em ${fmtData(n.dataAssinatura)}<br>Placa: ${n.placa || '-'} · C. Custo: ${n.centroCusto || '-'}`
+              ? `Assinado por ${n.assinadoPor} em ${fmtData(n.dataAssinatura)}<br>Placa: ${n.placa || '-'} · C.C CUSTO: ${n.centroCusto || '-'}`
               : `Subido em ${fmtData(n.dataUpload)}`}
           </div>
         </div>
@@ -352,12 +367,16 @@ function voltarLista() {
 // ---------- OPERACIONAL: ASSINAR ----------
 async function abrirNota(nota) {
   notaAtual = nota;
-  pontoToque = null;
+  pontosPorPagina = {};
+  pontoUnico = null;
+  paginaAtual = 1;
   document.getElementById('marker').classList.add('hidden');
   document.getElementById('btnConfirmarAssinatura').disabled = true;
   document.getElementById('campoPlaca').value = '';
   document.getElementById('campoRecado').value = '';
   document.getElementById('assinarMsg').textContent = '';
+  document.getElementById('replicarTodasPaginas').checked = true;
+  onMudarReplicar();
   mostrar('viewAssinar');
 
   const r = await api('getFile', { id: nota.id, usuario: sessao.usuario, senha: sessao.senha }, 'GET');
@@ -371,7 +390,7 @@ async function abrirNota(nota) {
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   pdfOriginalBytes = bytes;
 
-  await renderizarPagina(bytes);
+  await carregarDocumento(bytes);
 }
 
 function abrirEmTelaCheia() {
@@ -381,13 +400,62 @@ function abrirEmTelaCheia() {
   window.open(url, '_blank');
 }
 
-async function renderizarPagina(bytes) {
+function onMudarReplicar() {
+  const replicar = document.getElementById('replicarTodasPaginas').checked;
+  document.getElementById('hintReplicar').style.display = replicar ? 'none' : 'block';
+  desenharMarkerAtual();
+  atualizarBotaoConfirmar();
+}
+
+function atualizarInfoPagina() {
+  document.getElementById('infoPagina').textContent = `Página ${paginaAtual} de ${numPaginas}`;
+}
+
+async function paginaAnterior() {
+  if (paginaAtual <= 1) return;
+  paginaAtual--;
+  await renderPaginaAtual();
+}
+
+async function paginaProxima() {
+  if (paginaAtual >= numPaginas) return;
+  paginaAtual++;
+  await renderPaginaAtual();
+}
+
+function atualizarBotaoConfirmar() {
+  const replicar = document.getElementById('replicarTodasPaginas').checked;
+  const habilitado = replicar ? !!pontoUnico : Object.keys(pontosPorPagina).length > 0;
+  document.getElementById('btnConfirmarAssinatura').disabled = !habilitado;
+}
+
+function desenharMarkerAtual() {
+  const marker = document.getElementById('marker');
+  const replicar = document.getElementById('replicarTodasPaginas').checked;
+  const ponto = replicar ? pontoUnico : pontosPorPagina[paginaAtual];
+  if (!ponto) { marker.classList.add('hidden'); return; }
+
+  const canvas = document.getElementById('pdfCanvas');
+  const xCanvas = ponto.x * ultimoRenderScale;
+  const yCanvas = (ultimaAlturaPdf - ponto.y) * ultimoRenderScale;
+  marker.style.left = (xCanvas / canvas.width * 100) + '%';
+  marker.style.top = (yCanvas / canvas.height * 100) + '%';
+  marker.classList.remove('hidden');
+}
+
+async function carregarDocumento(bytes) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
-  const page = await doc.getPage(1);
-  pdfjsPage = page;
+  pdfjsDocAtual = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  numPaginas = pdfjsDocAtual.numPages;
+  paginaAtual = 1;
+  await renderPaginaAtual();
+}
+
+async function renderPaginaAtual() {
+  const page = await pdfjsDocAtual.getPage(paginaAtual);
+  atualizarInfoPagina();
 
   const wrap = document.getElementById('pdfWrap');
   const targetWidth = wrap.clientWidth || 400;
@@ -396,6 +464,9 @@ async function renderizarPagina(bytes) {
   const dpr = window.devicePixelRatio || 1;
   const renderScale = canvasScale * Math.max(dpr, 2); // reforço extra de nitidez
   const viewport = page.getViewport({ scale: renderScale });
+
+  ultimoRenderScale = renderScale;
+  ultimaAlturaPdf = unscaled.height;
 
   const canvas = document.getElementById('pdfCanvas');
   canvas.width = viewport.width;
@@ -408,49 +479,72 @@ async function renderizarPagina(bytes) {
     const xCanvas = (ev.clientX - rect.left) * (canvas.width / rect.width);
     const yCanvas = (ev.clientY - rect.top) * (canvas.height / rect.height);
 
-    const marker = document.getElementById('marker');
-    marker.style.left = ((ev.clientX - rect.left) / rect.width * 100) + '%';
-    marker.style.top = ((ev.clientY - rect.top) / rect.height * 100) + '%';
-    marker.classList.remove('hidden');
-
     // converte para coordenadas do PDF (origem embaixo à esquerda)
     const pdfX = xCanvas / renderScale;
     const pdfY = unscaled.height - (yCanvas / renderScale);
-    pontoToque = { x: pdfX, y: pdfY };
+    const ponto = { x: pdfX, y: pdfY };
 
-    document.getElementById('btnConfirmarAssinatura').disabled = false;
+    const replicar = document.getElementById('replicarTodasPaginas').checked;
+    if (replicar) { pontoUnico = ponto; } else { pontosPorPagina[paginaAtual] = ponto; }
+
+    desenharMarkerAtual();
+    atualizarBotaoConfirmar();
   };
+
+  desenharMarkerAtual();
+}
+
+function linhasCarimbo(nome, placa, centroCusto, recado) {
+  const linhas = [
+    `ASSINADO DE FORMA DIGITAL POR ${nome.toUpperCase()}`,
+    `PLACA: ${placa || '-'}   C.C CUSTO: ${centroCusto.toUpperCase()}`
+  ];
+  if (recado) linhas.push(recado);
+  linhas.push(`DADOS: ${new Date().toLocaleString('pt-BR').toUpperCase()}`);
+  return linhas;
 }
 
 async function confirmarAssinatura() {
-  if (!pontoToque) return;
+  const replicar = document.getElementById('replicarTodasPaginas').checked;
+  if (replicar && !pontoUnico) return;
+  if (!replicar && !Object.keys(pontosPorPagina).length) return;
+
   const msg = document.getElementById('assinarMsg');
   msg.textContent = 'Processando...';
   document.getElementById('btnConfirmarAssinatura').disabled = true;
 
   const placa = document.getElementById('campoPlaca').value.trim().toUpperCase();
-  const centroCusto = document.getElementById('campoCentroCusto').value;
+  const centroCusto = document.getElementById('campoCentroCusto').value.toUpperCase();
   const recado = document.getElementById('campoRecado').value.trim().toUpperCase();
 
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const doc = await PDFDocument.load(pdfOriginalBytes);
-  const page = doc.getPages()[0];
+  const paginas = doc.getPages();
   const font = await doc.embedFont(StandardFonts.Helvetica);
+  const linhas = linhasCarimbo(sessao.nome, placa, centroCusto, recado);
 
-  const linha1 = `Placa: ${placa || '-'}  ·  C. Custo: ${centroCusto}`;
-  const linha2 = recado ? recado : '';
-  const linha3 = `Assinado por ${sessao.nome} em ${new Date().toLocaleString('pt-BR')}`;
-
-  const x = pontoToque.x;
-  let y = pontoToque.y;
-
-  page.drawText(linha1, { x, y, size: 10, font, color: rgb(0.15,0.15,0.16) });
-  y -= 13;
-  if (linha2) {
-    page.drawText(linha2, { x, y, size: 10, font, color: rgb(0.15,0.15,0.16) });
-    y -= 13;
+  function carimbarPagina(page, ponto) {
+    let y = ponto.y;
+    linhas.forEach((linha, i) => {
+      const ehData = i === linhas.length - 1;
+      page.drawText(linha, {
+        x: ponto.x, y,
+        size: ehData ? 8 : 10,
+        font,
+        color: ehData ? rgb(0.42,0.42,0.44) : rgb(0.15,0.15,0.16)
+      });
+      y -= 13;
+    });
   }
-  page.drawText(linha3, { x, y, size: 8, font, color: rgb(0.42,0.42,0.44) });
+
+  if (replicar) {
+    paginas.forEach((page) => carimbarPagina(page, pontoUnico));
+  } else {
+    Object.keys(pontosPorPagina).forEach((numPagina) => {
+      const idx = parseInt(numPagina, 10) - 1;
+      if (paginas[idx]) carimbarPagina(paginas[idx], pontosPorPagina[numPagina]);
+    });
+  }
 
   const finalBytes = await doc.save();
   let binary = '';
