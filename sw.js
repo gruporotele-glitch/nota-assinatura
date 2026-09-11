@@ -1,4 +1,4 @@
-const CACHE = 'nota-assinatura-v2';
+const CACHE = 'nota-assinatura-v4';
 const ARQUIVOS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
@@ -14,7 +14,13 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((nomes) =>
+      Promise.all(
+        nomes.filter((nome) => nome !== CACHE).map((nome) => caches.delete(nome))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
