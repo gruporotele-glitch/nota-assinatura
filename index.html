@@ -105,7 +105,7 @@
       <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
 
       <label>Placa</label>
-      <input type="text" id="campoPlaca" placeholder="Ex: ABC1D23">
+      <input type="text" id="campoPlaca" placeholder="Ex: ABC1D23" style="text-transform:uppercase;">
       <label>Centro de custo</label>
       <select id="campoCentroCusto">
         <option value="Entrega">Entrega</option>
@@ -113,7 +113,7 @@
         <option value="Armazém">Armazém</option>
       </select>
       <label>Recado (opcional)</label>
-      <textarea id="campoRecado" placeholder="Observação adicional"></textarea>
+      <textarea id="campoRecado" placeholder="Observação adicional" style="text-transform:uppercase;"></textarea>
 
       <button class="primary" id="btnConfirmarAssinatura" onclick="confirmarAssinatura()" disabled>
         Assinar nota
@@ -298,8 +298,10 @@ async function renderizarPagina(bytes) {
   const wrap = document.getElementById('pdfWrap');
   const targetWidth = wrap.clientWidth || 400;
   const unscaled = page.getViewport({ scale: 1 });
-  canvasScale = targetWidth / unscaled.width;
-  const viewport = page.getViewport({ scale: canvasScale });
+  canvasScale = targetWidth / unscaled.width; // escala usada nas contas de toque (CSS px)
+  const dpr = window.devicePixelRatio || 1;
+  const renderScale = canvasScale * dpr; // resolução real do canvas, mais nítida em telas HD
+  const viewport = page.getViewport({ scale: renderScale });
 
   const canvas = document.getElementById('pdfCanvas');
   canvas.width = viewport.width;
@@ -318,8 +320,8 @@ async function renderizarPagina(bytes) {
     marker.classList.remove('hidden');
 
     // converte para coordenadas do PDF (origem embaixo à esquerda)
-    const pdfX = xCanvas / canvasScale;
-    const pdfY = unscaled.height - (yCanvas / canvasScale);
+    const pdfX = xCanvas / renderScale;
+    const pdfY = unscaled.height - (yCanvas / renderScale);
     pontoToque = { x: pdfX, y: pdfY };
 
     document.getElementById('btnConfirmarAssinatura').disabled = false;
@@ -332,9 +334,9 @@ async function confirmarAssinatura() {
   msg.textContent = 'Processando...';
   document.getElementById('btnConfirmarAssinatura').disabled = true;
 
-  const placa = document.getElementById('campoPlaca').value.trim();
+  const placa = document.getElementById('campoPlaca').value.trim().toUpperCase();
   const centroCusto = document.getElementById('campoCentroCusto').value;
-  const recado = document.getElementById('campoRecado').value.trim();
+  const recado = document.getElementById('campoRecado').value.trim().toUpperCase();
 
   const { PDFDocument, StandardFonts, rgb } = PDFLib;
   const doc = await PDFDocument.load(pdfOriginalBytes);
