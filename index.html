@@ -111,6 +111,7 @@
         <canvas id="pdfCanvas"></canvas>
         <div id="marker" class="marker hidden"></div>
       </div>
+      <button class="link" onclick="abrirEmTelaCheia()">Ver PDF em tela cheia (leitor do celular)</button>
       <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
 
       <label>Placa</label>
@@ -373,6 +374,13 @@ async function abrirNota(nota) {
   await renderizarPagina(bytes);
 }
 
+function abrirEmTelaCheia() {
+  if (!pdfOriginalBytes) return;
+  const blob = new Blob([pdfOriginalBytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
 async function renderizarPagina(bytes) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -386,7 +394,7 @@ async function renderizarPagina(bytes) {
   const unscaled = page.getViewport({ scale: 1 });
   canvasScale = targetWidth / unscaled.width; // escala usada nas contas de toque (CSS px)
   const dpr = window.devicePixelRatio || 1;
-  const renderScale = canvasScale * dpr; // resolução real do canvas, mais nítida em telas HD
+  const renderScale = canvasScale * Math.max(dpr, 2); // reforço extra de nitidez
   const viewport = page.getViewport({ scale: renderScale });
 
   const canvas = document.getElementById('pdfCanvas');
