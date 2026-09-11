@@ -5,60 +5,84 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Assinatura de Notas · Rotele</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3a3a3c">
+<meta name="theme-color" content="#ffffff">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
-    --dark:#3a3a3c; --orange:#fcb040; --bg:#f3f3f4; --card:#ffffff;
+    --dark:#232326; --dark2:#3a3a3c; --orange:#fcb040; --orange2:#f39c12;
+    --bg:#f0f0f2; --card:#ffffff;
     --text:#232326; --muted:#6c6c70; --danger:#c0392b; --ok:#2e7d32;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);}
-  header{background:var(--dark);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
-  header .brand{display:flex;align-items:center;gap:10px;}
-  header .dot{width:10px;height:10px;border-radius:50%;background:var(--orange);}
-  header h1{font-size:16px;margin:0;font-weight:600;}
-  header .sub{font-size:11px;color:#c9c9cc;margin-top:2px;}
-  header button{background:transparent;border:1px solid #6a6a6c;color:#e8e8e9;border-radius:6px;padding:6px 10px;font-size:12px;}
-  main{max-width:480px;margin:0 auto;padding:20px 16px 60px;}
-  .card{background:var(--card);border-radius:10px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
-  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
-  input[type=text],input[type=password],select,textarea{
-    width:100%;padding:11px 12px;border:1px solid #d8d8db;border-radius:8px;font-size:15px;background:#fff;
+  header{
+    background:#ffffff;color:var(--text);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;
+    box-shadow:0 2px 10px rgba(0,0,0,.08);border-bottom:1px solid #ececee;
   }
+  header .brand{display:flex;align-items:center;gap:12px;}
+  header img.logo{height:34px;width:auto;display:block;}
+  header .title-block{border-left:1px solid #dcdce0;padding-left:12px;}
+  header h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.2px;color:var(--dark);}
+  header .sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  header button{
+    background:#fff;border:1.5px solid #dcdce0;color:var(--dark2);
+    border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;
+  }
+  main{max-width:480px;margin:0 auto;padding:22px 16px 70px;}
+  .card{background:var(--card);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 14px rgba(30,30,32,.08);border:1px solid #ececee;}
+  label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.3px;color:var(--muted);text-transform:uppercase;margin:12px 0 5px;}
+  input[type=text],input[type=password],select,textarea{
+    width:100%;padding:12px 13px;border:1.5px solid #dcdce0;border-radius:10px;font-size:15px;background:#fafafa;
+    transition:border-color .15s,background .15s;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--orange);background:#fff;}
   textarea{resize:vertical;min-height:60px;}
   button.primary{
-    width:100%;margin-top:16px;background:var(--orange);color:#2a2a2c;border:none;
-    padding:13px;border-radius:8px;font-size:15px;font-weight:600;
+    width:100%;margin-top:18px;background:linear-gradient(135deg,var(--orange) 0%,var(--orange2) 100%);
+    color:#2a2a2c;border:none;padding:14px;border-radius:11px;font-size:15px;font-weight:700;
+    box-shadow:0 3px 10px rgba(243,156,18,.35);letter-spacing:.2px;
+    display:flex;align-items:center;justify-content:center;gap:8px;
   }
-  button.primary:disabled{opacity:.45;}
-  button.link{background:none;border:none;color:var(--dark);font-size:13px;text-decoration:underline;padding:0;}
-  .error{color:var(--danger);font-size:13px;margin-top:8px;}
-  .note-item{border:1px solid #e3e3e5;border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;background:#fff;}
-  .note-item .name{font-size:14px;font-weight:600;}
-  .note-item .meta{font-size:12px;color:var(--muted);margin-top:2px;}
-  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 10px;}
-  .pdf-wrap{position:relative;border:1px solid #ddd;border-radius:8px;overflow:hidden;touch-action:manipulation;}
+  button.primary:active{transform:translateY(1px);}
+  button.primary:disabled{opacity:.4;box-shadow:none;}
+  button.secondary{
+    width:100%;margin-top:10px;background:#fff;color:var(--dark2);border:1.5px solid #dcdce0;
+    padding:12px;border-radius:11px;font-size:14px;font-weight:600;
+  }
+  button.link{background:none;border:none;color:var(--dark2);font-size:13px;font-weight:600;text-decoration:none;padding:6px 0;border-bottom:1.5px solid transparent;}
+  button.link:hover{border-bottom-color:var(--orange);}
+  .error{color:var(--danger);font-size:13px;margin-top:8px;font-weight:600;}
+  .note-item{border:1px solid #ececee;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fff;transition:box-shadow .15s;}
+  .note-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .note-item .name{font-size:14.5px;font-weight:700;}
+  .note-item .meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5;}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:34px 10px;}
+  .pdf-wrap{position:relative;border:1.5px solid #e2e2e5;border-radius:12px;overflow:hidden;touch-action:manipulation;box-shadow:inset 0 0 0 1px #fff;}
   .pdf-wrap canvas{width:100%;display:block;}
-  .marker{position:absolute;width:14px;height:14px;background:var(--orange);border:2px solid var(--dark);border-radius:50%;transform:translate(-50%,-50%);}
-  .hint{font-size:12px;color:var(--muted);margin-top:6px;}
+  .marker{width:16px;height:16px;background:var(--orange);border:2.5px solid var(--dark);border-radius:50%;box-shadow:0 0 0 4px rgba(252,176,64,.3);}
+  .marker{position:absolute;transform:translate(-50%,-50%);}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;}
   .row2{display:flex;gap:10px;}
   .row2 > div{flex:1;}
-  .status-pill{font-size:11px;padding:3px 8px;border-radius:12px;background:#e9f5ea;color:var(--ok);}
+  .status-pill{font-size:10.5px;font-weight:700;letter-spacing:.3px;padding:4px 10px;border-radius:20px;background:#e9f5ea;color:var(--ok);}
   #app{display:none;}
   .hidden{display:none !important;}
+  .checkbox-row{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#faf6ef;border:1px solid #f0e2c8;border-radius:10px;margin-top:12px;}
+  .checkbox-row input{width:auto;}
+  .checkbox-row span{font-size:13px;color:var(--text);font-weight:500;}
+  .fila-badge{display:inline-block;background:var(--dark2);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <span class="dot"></span>
-    <div>
+    <img class="logo" src="logo.png" alt="Grupo Rotele">
+    <div class="title-block">
       <h1>Assinatura de Notas</h1>
-      <div class="sub">Rotele Distribuidora de Bebidas</div>
+      <div class="sub">Distribuidor Ambev MS</div>
     </div>
   </div>
   <button id="btnSair" class="hidden" onclick="sair()">Sair</button>
@@ -101,12 +125,24 @@
         <strong>Notas pendentes de assinatura</strong>
         <div id="listaNotas" style="margin-top:12px;"></div>
         <button class="link" onclick="carregarPendentes()">Atualizar lista</button>
+
+        <div id="barraLote" class="hidden">
+          <label style="margin-top:16px;">Ao assinar as selecionadas</label>
+          <select id="modoLote">
+            <option value="mesmo">Usar a mesma placa/centro de custo em todas</option>
+            <option value="individual">Preencher cada nota separadamente</option>
+          </select>
+          <button class="primary" onclick="iniciarFila()">
+            Assinar selecionadas (<span id="qtdSelecionadas">0</span>)
+          </button>
+        </div>
       </div>
     </section>
 
     <!-- OPERACIONAL: ASSINAR -->
     <section id="viewAssinar" class="card hidden">
-      <button class="link" onclick="voltarLista()">&larr; voltar</button>
+      <button class="link" onclick="cancelarFila()">&larr; voltar</button>
+      <div id="badgeFila" class="fila-badge hidden"></div>
       <div class="pdf-wrap" id="pdfWrap" style="margin-top:10px;">
         <canvas id="pdfCanvas"></canvas>
         <div id="marker" class="marker hidden"></div>
@@ -119,9 +155,9 @@
       <button class="link" onclick="abrirEmTelaCheia()">Ver PDF em tela cheia (leitor do celular)</button>
       <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
 
-      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;">
-        <input type="checkbox" id="replicarTodasPaginas" checked onchange="onMudarReplicar()" style="width:auto;">
-        <span style="font-size:13px;color:var(--text);">Aplicar o mesmo carimbo em todas as páginas</span>
+      <label class="checkbox-row" style="margin-top:14px;text-transform:none;">
+        <input type="checkbox" id="replicarTodasPaginas" checked onchange="onMudarReplicar()">
+        <span>Aplicar o mesmo carimbo em todas as páginas</span>
       </label>
       <div class="hint" id="hintReplicar">Desmarque pra escolher, página a página, onde o carimbo vai (útil quando cada página precisa de um recado diferente).</div>
 
@@ -160,6 +196,11 @@ let pontoUnico = null;     // usado quando "replicar" está marcado
 let canvasScale = 1;
 let ultimoRenderScale = 1;
 let ultimaAlturaPdf = 1;
+let notasSelecionadas = new Set();
+let filaAssinatura = [];
+let filaIndice = 0;
+let filaModoMesmo = false;
+let filaDadosCompartilhados = null;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -338,9 +379,12 @@ async function excluirNota(id) {
 async function carregarPendentes() {
   const box = document.getElementById('listaNotas');
   box.innerHTML = '<div class="hint">Carregando...</div>';
+  notasSelecionadas = new Set();
+  atualizarBarraLote();
   const r = await api('listPending', { usuario: sessao.usuario, senha: sessao.senha }, 'GET');
   if (!r.ok || !r.notas.length) {
     box.innerHTML = '<div class="empty">Nenhuma nota pendente.</div>';
+    document.getElementById('barraLote').classList.add('hidden');
     return;
   }
   box.innerHTML = '';
@@ -348,15 +392,54 @@ async function carregarPendentes() {
     const el = document.createElement('div');
     el.className = 'note-item';
     el.innerHTML = `
-      <div>
-        <div class="name">${n.nomeArquivo}</div>
-        <div class="meta">Subido por ${n.subidoPor}</div>
-      </div>
+      <label style="display:flex;align-items:center;gap:10px;margin:0;flex:1;text-transform:none;">
+        <input type="checkbox" style="width:auto;" data-sel="${n.id}">
+        <div>
+          <div class="name">${n.nomeArquivo}</div>
+          <div class="meta">Subido por ${n.subidoPor}</div>
+        </div>
+      </label>
       <span class="status-pill">Pendente</span>
     `;
-    el.onclick = () => abrirNota(n);
+    el.querySelector('[data-sel]').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (ev.target.checked) notasSelecionadas.add(n.id); else notasSelecionadas.delete(n.id);
+      atualizarBarraLote();
+    });
+    el.querySelector('.name').onclick = () => abrirNota(n);
     box.appendChild(el);
   });
+}
+
+function atualizarBarraLote() {
+  const barra = document.getElementById('barraLote');
+  const qtd = notasSelecionadas.size;
+  document.getElementById('qtdSelecionadas').textContent = qtd;
+  barra.classList.toggle('hidden', qtd < 2);
+}
+
+async function iniciarFila() {
+  const r = await api('listPending', { usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  if (!r.ok) return;
+  filaAssinatura = r.notas.filter(n => notasSelecionadas.has(n.id));
+  filaIndice = 0;
+  filaModoMesmo = document.getElementById('modoLote').value === 'mesmo';
+  filaDadosCompartilhados = null;
+  abrirProximaDaFila();
+}
+
+function abrirProximaDaFila() {
+  if (filaIndice >= filaAssinatura.length) {
+    filaAssinatura = [];
+    voltarLista();
+    return;
+  }
+  abrirNota(filaAssinatura[filaIndice]);
+}
+
+function cancelarFila() {
+  filaAssinatura = [];
+  voltarLista();
 }
 
 function voltarLista() {
@@ -372,11 +455,28 @@ async function abrirNota(nota) {
   paginaAtual = 1;
   document.getElementById('marker').classList.add('hidden');
   document.getElementById('btnConfirmarAssinatura').disabled = true;
-  document.getElementById('campoPlaca').value = '';
-  document.getElementById('campoRecado').value = '';
   document.getElementById('assinarMsg').textContent = '';
   document.getElementById('replicarTodasPaginas').checked = true;
   onMudarReplicar();
+
+  const emFila = filaAssinatura.length > 0;
+  const badge = document.getElementById('badgeFila');
+  if (emFila) {
+    badge.textContent = `Nota ${filaIndice + 1} de ${filaAssinatura.length}`;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+
+  if (emFila && filaModoMesmo && filaDadosCompartilhados) {
+    document.getElementById('campoPlaca').value = filaDadosCompartilhados.placa;
+    document.getElementById('campoCentroCusto').value = filaDadosCompartilhados.centroCusto;
+    document.getElementById('campoRecado').value = filaDadosCompartilhados.recado;
+  } else {
+    document.getElementById('campoPlaca').value = '';
+    document.getElementById('campoRecado').value = '';
+  }
+
   mostrar('viewAssinar');
 
   const r = await api('getFile', { id: nota.id, usuario: sessao.usuario, senha: sessao.senha }, 'GET');
@@ -557,8 +657,17 @@ async function confirmarAssinatura() {
   }, 'POST');
 
   if (r.ok) {
-    msg.textContent = 'Nota assinada com sucesso.';
-    setTimeout(voltarLista, 900);
+    if (filaAssinatura.length > 0 && filaModoMesmo) {
+      filaDadosCompartilhados = { placa, centroCusto, recado };
+    }
+    if (filaAssinatura.length > 0) {
+      msg.textContent = 'Nota assinada. Abrindo a próxima...';
+      filaIndice++;
+      setTimeout(abrirProximaDaFila, 700);
+    } else {
+      msg.textContent = 'Nota assinada com sucesso.';
+      setTimeout(voltarLista, 900);
+    }
   } else {
     msg.textContent = 'Erro: ' + (r.erro || 'falha ao assinar');
     document.getElementById('btnConfirmarAssinatura').disabled = false;
