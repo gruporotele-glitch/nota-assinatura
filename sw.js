@@ -1,5 +1,10 @@
-const CACHE = 'nota-assinatura-v1';
-const ARQUIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'nota-assinatura-v2';
+const ARQUIVOS = [
+  './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
