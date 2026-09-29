@@ -16,7 +16,10 @@
     --text:#232326; --muted:#6c6c70; --danger:#c0392b; --ok:#2e7d32;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+    background-image:radial-gradient(circle at 15% 0%, rgba(252,176,64,.10) 0%, transparent 45%),radial-gradient(circle at 100% 25%, rgba(58,58,60,.05) 0%, transparent 40%);
+    min-height:100vh;
+  }
   header{
     background:#ffffff;color:var(--text);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;
     box-shadow:0 2px 10px rgba(0,0,0,.08);border-bottom:1px solid #ececee;
@@ -54,10 +57,10 @@
   button.link{background:none;border:none;color:var(--dark2);font-size:13px;font-weight:600;text-decoration:none;padding:6px 0;border-bottom:1.5px solid transparent;}
   button.link:hover{border-bottom-color:var(--orange);}
   .error{color:var(--danger);font-size:13px;margin-top:8px;font-weight:600;}
-  .note-item{border:1px solid #ececee;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fff;transition:box-shadow .15s;}
+  .note-item{border:1px solid #ececee;border-radius:12px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;background:#fff;transition:box-shadow .15s;min-width:0;}
   .note-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.06);}
-  .note-item .name{font-size:14.5px;font-weight:700;}
-  .note-item .meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5;}
+  .note-item .name{font-size:14.5px;font-weight:700;overflow-wrap:anywhere;word-break:break-word;}
+  .note-item .meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5;overflow-wrap:anywhere;word-break:break-word;}
   .empty{color:var(--muted);font-size:14px;text-align:center;padding:34px 10px;}
   .pdf-wrap{position:relative;border:1.5px solid #e2e2e5;border-radius:12px;overflow:hidden;touch-action:manipulation;box-shadow:inset 0 0 0 1px #fff;}
   .pdf-wrap canvas{width:100%;display:block;}
@@ -73,6 +76,20 @@
   .checkbox-row input{width:auto;}
   .checkbox-row span{font-size:13px;color:var(--text);font-weight:500;}
   .fila-badge{display:inline-block;background:var(--dark2);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
+  .login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 67px);padding:30px 16px;}
+  .login-wrap .login-logo{height:52px;margin-bottom:8px;}
+  .login-wrap .login-title{font-size:18px;font-weight:700;color:var(--dark);margin-bottom:4px;}
+  .login-wrap .login-sub{font-size:13px;color:var(--muted);margin-bottom:22px;}
+  .login-wrap .card{width:100%;max-width:360px;}
+  .btn-icon{width:18px;height:18px;flex-shrink:0;}
+  .file-icon{width:34px;height:34px;border-radius:9px;background:#fdf1de;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:11px;}
+  .file-icon svg{width:17px;height:17px;color:var(--orange2);}
+  .note-item-inner{display:flex;align-items:center;flex:1;min-width:0;}
+  .drop-area{border:2px dashed #d8d8dc;border-radius:12px;padding:24px 14px;text-align:center;background:#fafafa;transition:border-color .15s,background .15s;}
+  .drop-area.dragover{border-color:var(--orange);background:#fff7ea;}
+  .drop-area .drop-text{font-size:13.5px;font-weight:600;color:var(--text);}
+  .drop-area .drop-sub{font-size:11.5px;color:var(--muted);margin:4px 0 10px;}
+  .drop-area input[type=file]{width:auto;display:inline-block;background:#fff;}
 </style>
 </head>
 <body>
@@ -91,22 +108,44 @@
 <main>
 
   <!-- LOGIN -->
-  <section id="viewLogin" class="card">
-    <label>Usuário</label>
-    <input type="text" id="loginUsuario" autocomplete="username">
-    <label>Senha</label>
-    <input type="password" id="loginSenha" autocomplete="current-password">
-    <button class="primary" onclick="fazerLogin()">Entrar</button>
-    <div id="loginErro" class="error hidden"></div>
-  </section>
+  <div id="viewLogin" class="login-wrap">
+    <img src="logo.png" class="login-logo" alt="Grupo Rotele">
+    <div class="login-title">Assinatura de Notas</div>
+    <div class="login-sub">Distribuidor Ambev MS</div>
+    <section class="card">
+      <label>Usuário</label>
+      <input type="text" id="loginUsuario" autocomplete="username">
+      <label>Senha</label>
+      <input type="password" id="loginSenha" autocomplete="current-password">
+      <label class="checkbox-row" style="text-transform:none;">
+        <input type="checkbox" id="lembrarLogin" checked>
+        <span>Lembrar meu login neste celular</span>
+      </label>
+      <button class="primary" onclick="fazerLogin()">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Entrar
+      </button>
+      <div id="loginErro" class="error hidden"></div>
+      <button class="link" onclick="esquecerLoginSalvo()" style="margin-top:10px;">Esquecer login salvo neste celular</button>
+    </section>
+  </div>
 
   <div id="app">
 
     <!-- ADMIN: UPLOAD -->
     <section id="viewAdmin" class="card hidden">
       <label>Selecionar notas (PDF) — pode escolher várias</label>
-      <input type="file" id="arquivoPdf" accept="application/pdf" multiple>
-      <button class="primary" id="btnUpload" onclick="subirNota()" disabled>Subir nota(s)</button>
+      <div id="dropArea" class="drop-area">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:30px;height:30px;color:var(--muted);margin-bottom:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="drop-text">Arraste os PDFs aqui</div>
+        <div class="drop-sub">ou</div>
+        <input type="file" id="arquivoPdf" accept="application/pdf" multiple>
+      </div>
+      <div id="listaArquivosEscolhidos" class="hint"></div>
+      <button class="primary" id="btnUpload" onclick="subirNota()" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Subir nota(s)
+      </button>
       <div id="uploadMsg" class="hint"></div>
       <button class="link" style="margin-top:14px;" onclick="mostrarMinhasNotas()">Ver minhas notas &rarr;</button>
     </section>
@@ -156,15 +195,17 @@
       <div class="hint">Toque no PDF no local onde o recado deve aparecer.</div>
 
       <label class="checkbox-row" style="margin-top:14px;text-transform:none;">
-        <input type="checkbox" id="replicarTodasPaginas" checked onchange="onMudarReplicar()">
+        <input type="checkbox" id="replicarTodasPaginas" onchange="onMudarReplicar()">
         <span>Aplicar o mesmo carimbo em todas as páginas</span>
       </label>
-      <div class="hint" id="hintReplicar">Desmarque pra escolher, página a página, onde o carimbo vai (útil quando cada página precisa de um recado diferente).</div>
+      <div class="hint" id="hintReplicar">Desmarcado: toque em cada página onde quer o carimbo — só as páginas tocadas recebem assinatura. Marcado: toque uma vez e repete na mesma posição em todas.</div>
+      <div id="paginasMarcadas" class="hint"></div>
 
       <label>Placa</label>
       <input type="text" id="campoPlaca" placeholder="Ex: ABC1D23" style="text-transform:uppercase;">
       <label>C.C CUSTO</label>
       <select id="campoCentroCusto">
+        <option value="">Selecione...</option>
         <option value="Entrega">Entrega</option>
         <option value="Puxada">Puxada</option>
         <option value="Armazém">Armazém</option>
@@ -173,6 +214,7 @@
       <textarea id="campoRecado" placeholder="Observação adicional" style="text-transform:uppercase;"></textarea>
 
       <button class="primary" id="btnConfirmarAssinatura" onclick="confirmarAssinatura()" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
         Assinar nota
       </button>
       <div id="assinarMsg" class="hint"></div>
@@ -208,6 +250,56 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+const LOGIN_KEY = 'notaAssinatura_login';
+
+function salvarLoginLocal(usuario, senha) {
+  try { localStorage.setItem(LOGIN_KEY, JSON.stringify({ usuario, senha })); } catch (e) {}
+}
+function limparLoginLocal() {
+  try { localStorage.removeItem(LOGIN_KEY); } catch (e) {}
+}
+function carregarLoginLocal() {
+  try {
+    const raw = localStorage.getItem(LOGIN_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function esquecerLoginSalvo() {
+  limparLoginLocal();
+  document.getElementById('loginUsuario').value = '';
+  document.getElementById('loginSenha').value = '';
+  const erroEl = document.getElementById('loginErro');
+  erroEl.textContent = 'Login salvo removido deste celular.';
+  erroEl.style.color = 'var(--ok)';
+  erroEl.classList.remove('hidden');
+}
+
+function entrarNoApp() {
+  document.getElementById('viewLogin').classList.add('hidden');
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('btnSair').classList.remove('hidden');
+
+  if (sessao.perfil === 'admin') {
+    mostrar('viewAdmin');
+  } else {
+    mostrar('viewLista');
+    carregarPendentes();
+  }
+}
+
+(async function tentarAutoLogin() {
+  const salvo = carregarLoginLocal();
+  if (!salvo) return;
+  const r = await api('login', salvo, 'POST');
+  if (r.ok) {
+    sessao = { usuario: salvo.usuario, senha: salvo.senha, perfil: r.perfil, nome: r.nome };
+    entrarNoApp();
+  } else {
+    limparLoginLocal();
+  }
+})();
+
 function mostrar(id) {
   document.querySelectorAll('main section').forEach(s => s.classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
@@ -236,22 +328,21 @@ async function fazerLogin() {
 
   const r = await api('login', { usuario, senha }, 'POST');
   if (!r.ok) {
+    erroEl.style.color = 'var(--danger)';
     erroEl.textContent = 'Usuário ou senha inválidos.';
     erroEl.classList.remove('hidden');
     return;
   }
 
   sessao = { usuario, senha, perfil: r.perfil, nome: r.nome };
-  document.getElementById('viewLogin').classList.add('hidden');
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('btnSair').classList.remove('hidden');
 
-  if (sessao.perfil === 'admin') {
-    mostrar('viewAdmin');
+  if (document.getElementById('lembrarLogin').checked) {
+    salvarLoginLocal(usuario, senha);
   } else {
-    mostrar('viewLista');
-    carregarPendentes();
+    limparLoginLocal();
   }
+
+  entrarNoApp();
 }
 
 function sair() {
@@ -263,8 +354,45 @@ function sair() {
 }
 
 // ---------- ADMIN: UPLOAD ----------
+let arquivosSelecionados = [];
+
+function atualizarListaArquivos() {
+  const box = document.getElementById('listaArquivosEscolhidos');
+  const btn = document.getElementById('btnUpload');
+  if (!arquivosSelecionados.length) {
+    box.textContent = '';
+    btn.disabled = true;
+    return;
+  }
+  box.innerHTML = arquivosSelecionados.length === 1
+    ? `1 arquivo selecionado: ${arquivosSelecionados[0].name}`
+    : `${arquivosSelecionados.length} arquivos selecionados.`;
+  btn.disabled = false;
+}
+
 document.getElementById('arquivoPdf').addEventListener('change', (e) => {
-  document.getElementById('btnUpload').disabled = !e.target.files.length;
+  arquivosSelecionados = Array.from(e.target.files);
+  atualizarListaArquivos();
+});
+
+const dropArea = document.getElementById('dropArea');
+['dragenter', 'dragover'].forEach(evt => {
+  dropArea.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    dropArea.classList.add('dragover');
+  });
+});
+['dragleave', 'drop'].forEach(evt => {
+  dropArea.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    dropArea.classList.remove('dragover');
+  });
+});
+dropArea.addEventListener('drop', (e) => {
+  const arquivos = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+  if (!arquivos.length) return;
+  arquivosSelecionados = arquivos;
+  atualizarListaArquivos();
 });
 
 function fileToBase64(file) {
@@ -277,8 +405,7 @@ function fileToBase64(file) {
 }
 
 async function subirNota() {
-  const input = document.getElementById('arquivoPdf');
-  const files = Array.from(input.files);
+  const files = arquivosSelecionados;
   if (!files.length) return;
   const msg = document.getElementById('uploadMsg');
   const btn = document.getElementById('btnUpload');
@@ -298,8 +425,9 @@ async function subirNota() {
   msg.textContent = falha
     ? `${sucesso} nota(s) enviada(s), ${falha} com erro.`
     : `${sucesso} nota(s) enviada(s) com sucesso.`;
-  input.value = '';
-  btn.disabled = true;
+  document.getElementById('arquivoPdf').value = '';
+  arquivosSelecionados = [];
+  atualizarListaArquivos();
 }
 
 // ---------- ADMIN: MINHAS NOTAS ----------
@@ -394,9 +522,14 @@ async function carregarPendentes() {
     el.innerHTML = `
       <label style="display:flex;align-items:center;gap:10px;margin:0;flex:1;text-transform:none;">
         <input type="checkbox" style="width:auto;" data-sel="${n.id}">
-        <div>
-          <div class="name">${n.nomeArquivo}</div>
-          <div class="meta">Subido por ${n.subidoPor}</div>
+        <div class="note-item-inner">
+          <div class="file-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div>
+            <div class="name">${n.nomeArquivo}</div>
+            <div class="meta">Subido por ${n.subidoPor}</div>
+          </div>
         </div>
       </label>
       <span class="status-pill">Pendente</span>
@@ -456,7 +589,7 @@ async function abrirNota(nota) {
   document.getElementById('marker').classList.add('hidden');
   document.getElementById('btnConfirmarAssinatura').disabled = true;
   document.getElementById('assinarMsg').textContent = '';
-  document.getElementById('replicarTodasPaginas').checked = true;
+  document.getElementById('replicarTodasPaginas').checked = false;
   onMudarReplicar();
 
   const emFila = filaAssinatura.length > 0;
@@ -474,6 +607,7 @@ async function abrirNota(nota) {
     document.getElementById('campoRecado').value = filaDadosCompartilhados.recado;
   } else {
     document.getElementById('campoPlaca').value = '';
+    document.getElementById('campoCentroCusto').value = '';
     document.getElementById('campoRecado').value = '';
   }
 
@@ -501,10 +635,22 @@ function abrirEmTelaCheia() {
 }
 
 function onMudarReplicar() {
-  const replicar = document.getElementById('replicarTodasPaginas').checked;
-  document.getElementById('hintReplicar').style.display = replicar ? 'none' : 'block';
   desenharMarkerAtual();
   atualizarBotaoConfirmar();
+  atualizarPaginasMarcadas();
+}
+
+function atualizarPaginasMarcadas() {
+  const el = document.getElementById('paginasMarcadas');
+  const replicar = document.getElementById('replicarTodasPaginas').checked;
+  if (replicar) {
+    el.textContent = pontoUnico ? `Carimbo será aplicado nas ${numPaginas} página(s) do PDF.` : '';
+  } else {
+    const paginas = Object.keys(pontosPorPagina).map(Number).sort((a,b) => a-b);
+    el.textContent = paginas.length
+      ? `Páginas marcadas: ${paginas.join(', ')} de ${numPaginas}.`
+      : 'Nenhuma página marcada ainda — navegue e toque em cada uma que precisar de carimbo.';
+  }
 }
 
 function atualizarInfoPagina() {
@@ -556,6 +702,7 @@ async function carregarDocumento(bytes) {
 async function renderPaginaAtual() {
   const page = await pdfjsDocAtual.getPage(paginaAtual);
   atualizarInfoPagina();
+  atualizarPaginasMarcadas();
 
   const wrap = document.getElementById('pdfWrap');
   const targetWidth = wrap.clientWidth || 400;
@@ -589,6 +736,7 @@ async function renderPaginaAtual() {
 
     desenharMarkerAtual();
     atualizarBotaoConfirmar();
+    atualizarPaginasMarcadas();
   };
 
   desenharMarkerAtual();
@@ -597,7 +745,7 @@ async function renderPaginaAtual() {
 function linhasCarimbo(nome, placa, centroCusto, recado) {
   const linhas = [
     `ASSINADO DE FORMA DIGITAL POR ${nome.toUpperCase()}`,
-    `PLACA: ${placa || '-'}   C.C CUSTO: ${centroCusto.toUpperCase()}`
+    `PLACA: ${placa || '-'}   C.C CUSTO: ${(centroCusto || '-').toUpperCase()}`
   ];
   if (recado) linhas.push(recado);
   linhas.push(`DADOS: ${new Date().toLocaleString('pt-BR').toUpperCase()}`);
