@@ -142,6 +142,23 @@
         <input type="file" id="arquivoPdf" accept="application/pdf" multiple>
       </div>
       <div id="listaArquivosEscolhidos" class="hint"></div>
+
+      <div id="blocoJuntar" class="checkbox-row hidden" style="margin-top:12px;">
+        <input type="checkbox" id="juntarArquivos" onchange="onMudarJuntar()">
+        <span>Juntar os arquivos selecionados em um único PDF (várias páginas)</span>
+      </div>
+      <div id="blocoNomeUnido" class="hidden">
+        <label>Nome do arquivo unido</label>
+        <input type="text" id="nomeArquivoUnido" placeholder="Ex: Notas do dia.pdf">
+      </div>
+
+      <label style="margin-top:14px;">Quem pode ver estas notas</label>
+      <label class="checkbox-row" style="text-transform:none;">
+        <input type="checkbox" id="destTodos" checked onchange="onMudarDestTodos()">
+        <span>Todos os operacionais</span>
+      </label>
+      <div id="listaDestinatarios" class="hidden" style="margin-top:8px;"></div>
+
       <button class="primary" id="btnUpload" onclick="subirNota()" disabled>
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Subir nota(s)
@@ -355,19 +372,65 @@ function sair() {
 
 // ---------- ADMIN: UPLOAD ----------
 let arquivosSelecionados = [];
+let operacionaisCache = null;
 
 function atualizarListaArquivos() {
   const box = document.getElementById('listaArquivosEscolhidos');
   const btn = document.getElementById('btnUpload');
+  const blocoJuntar = document.getElementById('blocoJuntar');
+
   if (!arquivosSelecionados.length) {
     box.textContent = '';
     btn.disabled = true;
+    blocoJuntar.classList.add('hidden');
     return;
   }
   box.innerHTML = arquivosSelecionados.length === 1
     ? `1 arquivo selecionado: ${arquivosSelecionados[0].name}`
     : `${arquivosSelecionados.length} arquivos selecionados.`;
   btn.disabled = false;
+  blocoJuntar.classList.toggle('hidden', arquivosSelecionados.length < 2);
+  if (arquivosSelecionados.length < 2) {
+    document.getElementById('juntarArquivos').checked = false;
+    onMudarJuntar();
+  }
+}
+
+function onMudarJuntar() {
+  const juntar = document.getElementById('juntarArquivos').checked;
+  document.getElementById('blocoNomeUnido').classList.toggle('hidden', !juntar);
+  if (juntar && !document.getElementById('nomeArquivoUnido').value) {
+    document.getElementById('nomeArquivoUnido').value = 'Notas unidas.pdf';
+  }
+}
+
+async function carregarOperacionais() {
+  if (operacionaisCache) return operacionaisCache;
+  const r = await api('listOperacionais', { usuario: sessao.usuario, senha: sessao.senha }, 'GET');
+  operacionaisCache = r.ok ? r.operacionais : [];
+  return operacionaisCache;
+}
+
+async function onMudarDestTodos() {
+  const todos = document.getElementById('destTodos').checked;
+  const box = document.getElementById('listaDestinatarios');
+  box.classList.toggle('hidden', todos);
+  if (!todos && !box.dataset.montado) {
+    const operacionais = await carregarOperacionais();
+    box.innerHTML = operacionais.map(o => `
+      <label class="checkbox-row" style="text-transform:none;margin-top:6px;">
+        <input type="checkbox" data-dest="${o.usuario}">
+        <span>${o.nome}</span>
+      </label>
+    `).join('');
+    box.dataset.montado = '1';
+  }
+}
+
+function obterDestinatariosSelecionados() {
+  if (document.getElementById('destTodos').checked) return [];
+  return Array.from(document.querySelectorAll('#listaDestinatarios [data-dest]:checked'))
+    .map(el => el.dataset.dest);
 }
 
 document.getElementById('arquivoPdf').addEventListener('change', (e) => {
@@ -395,6 +458,21 @@ dropArea.addEventListener('drop', (e) => {
   atualizarListaArquivos();
 });
 
+async function juntarPdfs(files) {
+  const { PDFDocument } = PDFLib;
+  const doc = await PDFDocument.create();
+  for (const file of files) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const origem = await PDFDocument.load(bytes);
+    const paginas = await doc.copyPages(origem, origem.getPageIndices());
+    paginas.forEach(p => doc.addPage(p));
+  }
+  const bytes = await doc.save();
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary);
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -411,21 +489,43 @@ async function subirNota() {
   const btn = document.getElementById('btnUpload');
   btn.disabled = true;
 
+  const destinatarios = obterDestinatariosSelecionados();
+  const juntar = files.length >= 2 && document.getElementById('juntarArquivos').checked;
+
   let sucesso = 0, falha = 0;
-  for (let i = 0; i < files.length; i++) {
-    msg.textContent = `Enviando ${i + 1} de ${files.length}...`;
-    const base64 = await fileToBase64(files[i]);
-    const r = await api('upload', {
-      usuario: sessao.usuario, senha: sessao.senha,
-      filename: files[i].name, base64
-    }, 'POST');
-    if (r.ok) sucesso++; else falha++;
+
+  if (juntar) {
+    msg.textContent = 'Juntando os PDFs...';
+    try {
+      const base64 = await juntarPdfs(files);
+      const nome = document.getElementById('nomeArquivoUnido').value.trim() || 'Notas unidas.pdf';
+      const r = await api('upload', {
+        usuario: sessao.usuario, senha: sessao.senha,
+        filename: nome, base64, destinatarios
+      }, 'POST');
+      if (r.ok) sucesso = 1; else falha = 1;
+    } catch (err) {
+      falha = 1;
+      msg.textContent = 'Erro ao juntar os PDFs: ' + err.message;
+    }
+  } else {
+    for (let i = 0; i < files.length; i++) {
+      msg.textContent = `Enviando ${i + 1} de ${files.length}...`;
+      const base64 = await fileToBase64(files[i]);
+      const r = await api('upload', {
+        usuario: sessao.usuario, senha: sessao.senha,
+        filename: files[i].name, base64, destinatarios
+      }, 'POST');
+      if (r.ok) sucesso++; else falha++;
+    }
   }
 
   msg.textContent = falha
     ? `${sucesso} nota(s) enviada(s), ${falha} com erro.`
     : `${sucesso} nota(s) enviada(s) com sucesso.`;
   document.getElementById('arquivoPdf').value = '';
+  document.getElementById('juntarArquivos').checked = false;
+  document.getElementById('nomeArquivoUnido').value = '';
   arquivosSelecionados = [];
   atualizarListaArquivos();
 }
@@ -463,25 +563,72 @@ async function carregarMinhasNotas() {
     el.style.alignItems = 'stretch';
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
+        <div style="min-width:0;">
           <div class="name">${n.nomeArquivo}</div>
           <div class="meta">
             ${assinado
               ? `Assinado por ${n.assinadoPor} em ${fmtData(n.dataAssinatura)}<br>Placa: ${n.placa || '-'} · C.C CUSTO: ${n.centroCusto || '-'}`
               : `Subido em ${fmtData(n.dataUpload)}`}
+            <br><span data-visivel-para>Visível para: ${n.destinatarios === 'TODOS' ? 'Todos' : n.destinatarios}</span>
           </div>
         </div>
         <span class="status-pill" style="${assinado ? '' : 'background:#fff3e0;color:#b26a00;'}">${n.status}</span>
       </div>
-      <div style="display:flex;gap:10px;margin-top:8px;">
+      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
         <button class="link" data-act="baixar">Baixar PDF</button>
+        <button class="link" data-act="editarDest">Editar quem vê</button>
         <button class="link" data-act="excluir" style="color:#c0392b;">Excluir</button>
       </div>
+      <div data-editor-dest class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;"></div>
     `;
     el.querySelector('[data-act=baixar]').onclick = () => baixarNota(n.id, n.nomeArquivo);
     el.querySelector('[data-act=excluir]').onclick = () => excluirNota(n.id);
+    el.querySelector('[data-act=editarDest]').onclick = () => abrirEditorDestinatarios(el, n);
     box.appendChild(el);
   });
+}
+
+async function abrirEditorDestinatarios(el, nota) {
+  const painel = el.querySelector('[data-editor-dest]');
+  if (!painel.classList.contains('hidden')) { painel.classList.add('hidden'); return; }
+
+  const operacionais = await carregarOperacionais();
+  const atuais = nota.destinatarios === 'TODOS' ? [] : nota.destinatarios.split(',').map(s => s.trim());
+  const todosMarcado = nota.destinatarios === 'TODOS';
+
+  painel.innerHTML = `
+    <label class="checkbox-row" style="text-transform:none;">
+      <input type="checkbox" data-edt-todos ${todosMarcado ? 'checked' : ''}>
+      <span>Todos os operacionais</span>
+    </label>
+    <div data-edt-lista class="${todosMarcado ? 'hidden' : ''}" style="margin-top:6px;">
+      ${operacionais.map(o => `
+        <label class="checkbox-row" style="text-transform:none;margin-top:6px;">
+          <input type="checkbox" data-edt-user="${o.usuario}" ${atuais.indexOf(o.usuario) !== -1 ? 'checked' : ''}>
+          <span>${o.nome}</span>
+        </label>
+      `).join('')}
+    </div>
+    <button class="secondary" data-edt-salvar>Salvar</button>
+  `;
+  painel.classList.remove('hidden');
+
+  painel.querySelector('[data-edt-todos]').addEventListener('change', (ev) => {
+    painel.querySelector('[data-edt-lista]').classList.toggle('hidden', ev.target.checked);
+  });
+
+  painel.querySelector('[data-edt-salvar]').onclick = async () => {
+    const todos = painel.querySelector('[data-edt-todos]').checked;
+    const destinatarios = todos ? [] : Array.from(painel.querySelectorAll('[data-edt-user]:checked')).map(el2 => el2.dataset.edtUser);
+    const r = await api('updateDestinatarios', {
+      usuario: sessao.usuario, senha: sessao.senha, noteId: nota.id, destinatarios
+    }, 'POST');
+    if (r.ok) {
+      carregarMinhasNotas();
+    } else {
+      alert('Erro ao salvar: ' + (r.erro || ''));
+    }
+  };
 }
 
 async function baixarNota(id, nomeArquivo) {
