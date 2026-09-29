@@ -1,4 +1,4 @@
-const CACHE = 'nota-assinatura-v9';
+const CACHE = 'nota-assinatura-v10';
 const ARQUIVOS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
