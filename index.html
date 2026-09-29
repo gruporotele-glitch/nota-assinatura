@@ -380,20 +380,44 @@ function atualizarListaArquivos() {
   const blocoJuntar = document.getElementById('blocoJuntar');
 
   if (!arquivosSelecionados.length) {
-    box.textContent = '';
+    box.innerHTML = '';
     btn.disabled = true;
     blocoJuntar.classList.add('hidden');
     return;
   }
-  box.innerHTML = arquivosSelecionados.length === 1
-    ? `1 arquivo selecionado: ${arquivosSelecionados[0].name}`
-    : `${arquivosSelecionados.length} arquivos selecionados.`;
   btn.disabled = false;
   blocoJuntar.classList.toggle('hidden', arquivosSelecionados.length < 2);
   if (arquivosSelecionados.length < 2) {
     document.getElementById('juntarArquivos').checked = false;
     onMudarJuntar();
   }
+
+  if (arquivosSelecionados.length === 1) {
+    box.innerHTML = `1 arquivo selecionado: ${arquivosSelecionados[0].name}`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px;">Ordem dos arquivos (usada ao juntar em um PDF só):</div>
+    ${arquivosSelecionados.map((f, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eee;">
+        <span style="font-weight:700;color:var(--muted);width:18px;">${i + 1}.</span>
+        <span style="flex:1;overflow-wrap:anywhere;">${f.name}</span>
+        <button type="button" data-mover="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} style="border:1px solid #dcdce0;background:#fff;border-radius:6px;width:28px;height:28px;">&uarr;</button>
+        <button type="button" data-mover="${i}" data-dir="1" ${i === arquivosSelecionados.length - 1 ? 'disabled' : ''} style="border:1px solid #dcdce0;background:#fff;border-radius:6px;width:28px;height:28px;">&darr;</button>
+      </div>
+    `).join('')}
+  `;
+  box.querySelectorAll('[data-mover]').forEach(btnMover => {
+    btnMover.onclick = () => {
+      const i = parseInt(btnMover.dataset.mover, 10);
+      const dir = parseInt(btnMover.dataset.dir, 10);
+      const j = i + dir;
+      if (j < 0 || j >= arquivosSelecionados.length) return;
+      [arquivosSelecionados[i], arquivosSelecionados[j]] = [arquivosSelecionados[j], arquivosSelecionados[i]];
+      atualizarListaArquivos();
+    };
+  });
 }
 
 function onMudarJuntar() {
