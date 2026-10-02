@@ -76,6 +76,13 @@
   .checkbox-row input{width:auto;}
   .checkbox-row span{font-size:13px;color:var(--text);font-weight:500;}
   .fila-badge{display:inline-block;background:var(--dark2);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
+  .stamp-preview{
+    position:absolute;transform:translate(6px,6px);background:rgba(255,255,255,.94);
+    border:1px solid #ddd;border-radius:6px;padding:4px 7px;font-size:9px;line-height:1.4;
+    color:#232326;pointer-events:none;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.16);
+    max-width:260px;
+  }
+  .stamp-preview .linha-muted{color:var(--muted);font-size:8px;}
   .login-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 67px);padding:30px 16px;}
   .login-wrap .login-logo{height:52px;margin-bottom:8px;}
   .login-wrap .login-title{font-size:18px;font-weight:700;color:var(--dark);margin-bottom:4px;}
@@ -202,6 +209,7 @@
       <div class="pdf-wrap" id="pdfWrap" style="margin-top:10px;">
         <canvas id="pdfCanvas"></canvas>
         <div id="marker" class="marker hidden"></div>
+        <div id="stampPreview" class="stamp-preview hidden"></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
         <button class="link" onclick="paginaAnterior()">&larr; Anterior</button>
@@ -600,21 +608,53 @@ async function carregarMinhasNotas() {
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
         <button class="link" data-act="baixar">Baixar PDF</button>
+        <button class="link" data-act="renomear">Editar nome</button>
         <button class="link" data-act="editarDest">Editar quem vê</button>
         <button class="link" data-act="excluir" style="color:#c0392b;">Excluir</button>
       </div>
+      <div data-editor-nome class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;"></div>
       <div data-editor-dest class="hidden" style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;"></div>
     `;
     el.querySelector('[data-act=baixar]').onclick = () => baixarNota(n.id, n.nomeArquivo);
     el.querySelector('[data-act=excluir]').onclick = () => excluirNota(n.id);
     el.querySelector('[data-act=editarDest]').onclick = () => abrirEditorDestinatarios(el, n);
+    el.querySelector('[data-act=renomear]').onclick = () => abrirEditorNome(el, n);
     box.appendChild(el);
   });
 }
 
+function abrirEditorNome(el, nota) {
+  const painel = el.querySelector('[data-editor-nome]');
+  const painelDest = el.querySelector('[data-editor-dest]');
+  if (!painel.classList.contains('hidden')) { painel.classList.add('hidden'); return; }
+  painelDest.classList.add('hidden');
+
+  painel.innerHTML = `
+    <label>Novo nome do arquivo</label>
+    <input type="text" data-input-nome value="${nota.nomeArquivo.replace(/"/g, '&quot;')}">
+    <button class="secondary" data-nome-salvar>Salvar nome</button>
+  `;
+  painel.classList.remove('hidden');
+
+  painel.querySelector('[data-nome-salvar]').onclick = async () => {
+    const novoNome = painel.querySelector('[data-input-nome]').value.trim();
+    if (!novoNome) return;
+    const r = await api('renomear', {
+      usuario: sessao.usuario, senha: sessao.senha, noteId: nota.id, novoNome
+    }, 'POST');
+    if (r.ok) {
+      carregarMinhasNotas();
+    } else {
+      alert('Erro ao renomear: ' + (r.erro || ''));
+    }
+  };
+}
+
 async function abrirEditorDestinatarios(el, nota) {
   const painel = el.querySelector('[data-editor-dest]');
+  const painelNome = el.querySelector('[data-editor-nome]');
   if (!painel.classList.contains('hidden')) { painel.classList.add('hidden'); return; }
+  painelNome.classList.add('hidden');
 
   const operacionais = await carregarOperacionais();
   const atuais = nota.destinatarios === 'TODOS' ? [] : nota.destinatarios.split(',').map(s => s.trim());
@@ -850,15 +890,40 @@ function desenharMarkerAtual() {
   const marker = document.getElementById('marker');
   const replicar = document.getElementById('replicarTodasPaginas').checked;
   const ponto = replicar ? pontoUnico : pontosPorPagina[paginaAtual];
-  if (!ponto) { marker.classList.add('hidden'); return; }
+  if (!ponto) { marker.classList.add('hidden'); atualizarPreviaCarimbo(null); return; }
 
   const canvas = document.getElementById('pdfCanvas');
   const xCanvas = ponto.x * ultimoRenderScale;
   const yCanvas = (ultimaAlturaPdf - ponto.y) * ultimoRenderScale;
-  marker.style.left = (xCanvas / canvas.width * 100) + '%';
-  marker.style.top = (yCanvas / canvas.height * 100) + '%';
+  const leftPct = xCanvas / canvas.width * 100;
+  const topPct = yCanvas / canvas.height * 100;
+  marker.style.left = leftPct + '%';
+  marker.style.top = topPct + '%';
   marker.classList.remove('hidden');
+  atualizarPreviaCarimbo({ leftPct, topPct });
 }
+
+function atualizarPreviaCarimbo(pos) {
+  const preview = document.getElementById('stampPreview');
+  if (!pos) { preview.classList.add('hidden'); return; }
+
+  const nome = sessao ? sessao.nome : '';
+  const placa = document.getElementById('campoPlaca').value.trim().toUpperCase();
+  const centroCusto = document.getElementById('campoCentroCusto').value.toUpperCase();
+  const recado = document.getElementById('campoRecado').value.trim().toUpperCase();
+  const linhas = linhasCarimbo(nome, placa, centroCusto, recado);
+
+  preview.innerHTML = linhas.map((l, i) =>
+    `<div${i === linhas.length - 1 ? ' class="linha-muted"' : ''}>${l}</div>`
+  ).join('');
+  preview.style.left = pos.leftPct + '%';
+  preview.style.top = pos.topPct + '%';
+  preview.classList.remove('hidden');
+}
+
+['campoPlaca', 'campoCentroCusto', 'campoRecado'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => desenharMarkerAtual());
+});
 
 async function carregarDocumento(bytes) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -914,10 +979,13 @@ async function renderPaginaAtual() {
 }
 
 function linhasCarimbo(nome, placa, centroCusto, recado) {
-  const linhas = [
-    `ASSINADO DE FORMA DIGITAL POR ${nome.toUpperCase()}`,
-    `PLACA: ${placa || '-'}   C.C CUSTO: ${(centroCusto || '-').toUpperCase()}`
-  ];
+  const linhas = [`ASSINADO DIGITALMENTE POR ${nome.toUpperCase()}`];
+
+  const partes = [];
+  if (placa) partes.push(`PLACA: ${placa}`);
+  if (centroCusto) partes.push(`C.C CUSTO: ${centroCusto.toUpperCase()}`);
+  if (partes.length) linhas.push(partes.join('   '));
+
   if (recado) linhas.push(recado);
   linhas.push(`DADOS: ${new Date().toLocaleString('pt-BR').toUpperCase()}`);
   return linhas;
@@ -944,15 +1012,36 @@ async function confirmarAssinatura() {
 
   function carimbarPagina(page, ponto) {
     let y = ponto.y;
+    const tamanho = 8;
+    const espacamento = 10.5;
     linhas.forEach((linha, i) => {
       const ehData = i === linhas.length - 1;
-      page.drawText(linha, {
-        x: ponto.x, y,
-        size: ehData ? 8 : 10,
-        font,
-        color: ehData ? rgb(0.42,0.42,0.44) : rgb(0.15,0.15,0.16)
+      const cor = ehData ? rgb(0.42,0.42,0.44) : rgb(0.15,0.15,0.16);
+      const t = ehData ? tamanho - 1 : tamanho;
+
+      // quebra a linha em partes se ela ficar larga demais (ex: nome comprido)
+      const larguraMax = 230;
+      let partesLinha = [linha];
+      if (font.widthOfTextAtSize(linha, t) > larguraMax) {
+        const palavras = linha.split(' ');
+        let atual = '';
+        partesLinha = [];
+        palavras.forEach((p) => {
+          const teste = atual ? atual + ' ' + p : p;
+          if (font.widthOfTextAtSize(teste, t) > larguraMax && atual) {
+            partesLinha.push(atual);
+            atual = p;
+          } else {
+            atual = teste;
+          }
+        });
+        if (atual) partesLinha.push(atual);
+      }
+
+      partesLinha.forEach((parte) => {
+        page.drawText(parte, { x: ponto.x, y, size: t, font, color: cor });
+        y -= espacamento;
       });
-      y -= 13;
     });
   }
 
